@@ -291,4 +291,89 @@ app.delete('/api/alerts/:id', verifyAdmin, async (req, res) => {
   }
 });
 
+// --- DATASET & MODEL RETRAINING API --- //
+
+// 1. Get Dataset split file counts
+app.get('/api/dataset/stats', verifyAdmin, async (req, res) => {
+  try {
+    const datasetDir = path.join(__dirname, '..', 'Model', 'pothole_detection', 'Dataset');
+    const counts = {
+      train: { 1: 0, 2: 0, 3: 0, total: 0 },
+      valid: { 1: 0, 2: 0, 3: 0, total: 0 },
+      test: { 1: 0, 2: 0, 3: 0, total: 0 },
+      grandTotal: 0
+    };
+
+    if (fs.existsSync(datasetDir)) {
+      const splits = ['train', 'valid', 'test'];
+      const categories = ['1', '2', '3'];
+
+      for (const split of splits) {
+        for (const cat of categories) {
+          const catDir = path.join(datasetDir, split, cat);
+          if (fs.existsSync(catDir)) {
+            const files = fs.readdirSync(catDir).filter(f => {
+              const lowerF = f.toLowerCase();
+              return lowerF.endsWith('.jpg') || lowerF.endsWith('.jpeg') || lowerF.endsWith('.png');
+            });
+            counts[split][cat] = files.length;
+            counts[split].total += files.length;
+            counts.grandTotal += files.length;
+          }
+        }
+      }
+    }
+
+    res.json(counts);
+  } catch (error) {
+    console.error('Stats fetch error:', error);
+    res.status(500).json({ error: 'Server Error fetching dataset stats' });
+  }
+});
+
+// 2. Upload and label new image to Training Dataset
+app.post('/api/dataset/upload', verifyAdmin, upload.single('image'), async (req, res) => {
+  try {
+    const { category } = req.body; // '1', '2', or '3'
+    if (!['1', '2', '3'].includes(category)) {
+      if (req.file) {
+        fs.unlinkSync(req.file.path);
+      }
+      return res.status(400).json({ error: 'Invalid category. Must be 1, 2, or 3.' });
+    }
+    
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image file uploaded.' });
+    }
+
+    const tempPath = req.file.path;
+    const destDir = path.join(__dirname, '..', 'Model', 'pothole_detection', 'Dataset', 'train', category);
+    
+    if (!fs.existsSync(destDir)) {
+      fs.mkdirSync(destDir, { recursive: true });
+    }
+
+    const finalPath = path.join(destDir, req.file.filename);
+    fs.renameSync(tempPath, finalPath);
+
+    res.status(201).json({ message: 'Dataset image uploaded successfully!', path: finalPath });
+  } catch (error) {
+    console.error('Dataset upload error:', error);
+    res.status(500).json({ error: 'Server Error during dataset upload' });
+  }
+});
+
+// 3. Trigger Model Retraining on Python server
+app.post('/api/model/retrain', verifyAdmin, async (req, res) => {
+  try {
+    const axios = require('axios');
+    const response = await axios.post('http://127.0.0.1:5000/retrain');
+    res.json(response.data);
+  } catch (error) {
+    console.error('Model retraining error:', error.message);
+    const errorMsg = error.response?.data?.error || 'Failed to retrain model. Ensure Python Flask service is running.';
+    res.status(500).json({ error: errorMsg });
+  }
+});
+
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

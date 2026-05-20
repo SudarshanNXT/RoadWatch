@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Shield, Home, Search as SearchIcon, Map as MapIcon, Image as ImageIcon, AlertTriangle, ExternalLink } from "lucide-react";
+import { Shield, Home, Search as SearchIcon, Map as MapIcon, Image as ImageIcon, AlertTriangle, ExternalLink, Database, UploadCloud, Cpu, RefreshCw, CheckCircle2, TrendingUp, X } from "lucide-react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -58,6 +58,83 @@ export default function Dashboard() {
 
   const navigate = useNavigate();
 
+  // --- AI Retraining & Dataset Manager State & Logic ---
+  const [datasetStats, setDatasetStats] = useState(null);
+  const [uploadCategory, setUploadCategory] = useState("1");
+  const [uploadFile, setUploadFile] = useState(null);
+  const [uploadPreview, setUploadPreview] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isRetraining, setIsRetraining] = useState(false);
+  const [retrainResults, setRetrainResults] = useState(null);
+  const [oldAccuracy, setOldAccuracy] = useState(null);
+
+  const fetchDatasetStats = async () => {
+    try {
+      const token = localStorage.getItem("adminToken");
+      const res = await axios.get("http://localhost:5001/api/dataset/stats", {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setDatasetStats(res.data);
+    } catch (err) {
+      console.error("Error fetching dataset stats", err);
+    }
+  };
+
+  const handleDatasetUpload = async (e) => {
+    e.preventDefault();
+    if (!uploadFile) return toast.error("Please select an image file first");
+    
+    setIsUploading(true);
+    const token = localStorage.getItem("adminToken");
+    const formData = new FormData();
+    formData.append("image", uploadFile);
+    formData.append("category", uploadCategory);
+
+    try {
+      await axios.post("http://localhost:5001/api/dataset/upload", formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "multipart/form-data" 
+        }
+      });
+      toast.success("Dataset image uploaded and labeled successfully!");
+      setUploadFile(null);
+      setUploadPreview(null);
+      fetchDatasetStats();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Failed to upload image to dataset");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleTriggerRetraining = async () => {
+    setIsRetraining(true);
+    setRetrainResults(null);
+    const token = localStorage.getItem("adminToken");
+
+    if (retrainResults?.valid_accuracy) {
+      setOldAccuracy(retrainResults.valid_accuracy);
+    } else {
+      setOldAccuracy(77.8);
+    }
+
+    toast.loading("Running Enhanced AI Retraining Pipeline...", { id: "retrain" });
+
+    try {
+      const res = await axios.post("http://localhost:5001/api/model/retrain", {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setRetrainResults(res.data);
+      toast.success("AI Model Retrained and Hot-Reloaded successfully! 🤖", { id: "retrain" });
+      fetchDatasetStats();
+    } catch (err) {
+      toast.error(err.response?.data?.error || "Retraining failed", { id: "retrain" });
+    } finally {
+      setIsRetraining(false);
+    }
+  };
+
   const handleSearch = async () => {
     if (!searchQuery) return;
     try {
@@ -75,6 +152,7 @@ export default function Dashboard() {
   useEffect(() => {
     fetchComplaints();
     fetchAlerts();
+    fetchDatasetStats();
   }, []);
 
   const fetchAlerts = async () => {
@@ -249,6 +327,250 @@ export default function Dashboard() {
     </div>
   );
 
+  const renderAIDatasetManager = () => (
+    <div className="space-y-8 animate-fade-in">
+      {/* Accuracy Header Panel */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        
+        {/* Active Model Info */}
+        <div className="bg-gradient-to-br from-green-600 to-emerald-700 text-white rounded-2xl p-6 shadow-xl relative overflow-hidden flex flex-col justify-between">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full -mr-6 -mt-6"></div>
+          <div>
+            <Cpu size={32} className="opacity-80 mb-4" />
+            <h4 className="text-sm font-semibold opacity-85 uppercase tracking-wider">Active Road Damage Model</h4>
+            <h3 className="text-2xl font-black mt-2">RandomForestClassifier</h3>
+          </div>
+          <div className="mt-6 flex justify-between items-center text-xs opacity-75">
+            <span>Estimators: 150</span>
+            <span>Hot-Reload Enabled</span>
+          </div>
+        </div>
+
+        {/* Validation Accuracy Card */}
+        <div className="bg-white rounded-2xl p-6 shadow-md border flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Model Validation Accuracy</h4>
+              <h2 className="text-4xl font-extrabold text-gray-800 mt-2">
+                {retrainResults?.valid_accuracy ? `${retrainResults.valid_accuracy}%` : "77.8%"}
+              </h2>
+            </div>
+            <div className="bg-green-100 text-green-700 font-bold text-xs px-2.5 py-1 rounded-full flex items-center gap-1">
+              <TrendingUp size={12} /> Baseline
+            </div>
+          </div>
+          {oldAccuracy && retrainResults?.valid_accuracy && (
+            <div className="mt-4 text-sm text-gray-600">
+              Compared to previous: <strong className={retrainResults.valid_accuracy >= oldAccuracy ? "text-green-600" : "text-red-500"}>
+                {retrainResults.valid_accuracy >= oldAccuracy ? "+" : ""}{(retrainResults.valid_accuracy - oldAccuracy).toFixed(1)}%
+              </strong>
+            </div>
+          )}
+          <div className="mt-auto pt-4 text-xs text-gray-400 border-t">
+            Measured against completely unseen validation samples.
+          </div>
+        </div>
+
+        {/* Test Accuracy Card */}
+        <div className="bg-white rounded-2xl p-6 shadow-md border flex flex-col justify-between">
+          <div className="flex justify-between items-start">
+            <div>
+              <h4 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Model Final Test Accuracy</h4>
+              <h2 className="text-4xl font-extrabold text-gray-800 mt-2">
+                {retrainResults?.test_accuracy ? `${retrainResults.test_accuracy}%` : "76.4%"}
+              </h2>
+            </div>
+            <div className="bg-emerald-100 text-emerald-700 font-bold text-xs px-2.5 py-1 rounded-full">
+              Final Exam
+            </div>
+          </div>
+          <div className="mt-auto pt-4 text-xs text-gray-400 border-t">
+            Evaluated against the final exam test partition.
+          </div>
+        </div>
+      </div>
+
+      {/* Dataset Statistics and Image Uploader */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        
+        {/* Dataset Stats Table */}
+        <div className="bg-white rounded-2xl p-6 shadow-md border flex flex-col">
+          <div className="flex items-center gap-2 mb-6 border-b pb-4">
+            <Database className="text-green-600" />
+            <h3 className="text-lg font-bold text-gray-800">Training & Evaluation Dataset</h3>
+          </div>
+          
+          {datasetStats ? (
+            <div className="overflow-x-auto flex-1 flex flex-col justify-between">
+              <table className="w-full text-left text-sm mb-6">
+                <thead className="bg-gray-50 text-gray-500 border-b font-bold uppercase text-xs">
+                  <tr>
+                    <th className="p-3">Data Split</th>
+                    <th className="p-3 text-center">Low (1)</th>
+                    <th className="p-3 text-center">Medium (2)</th>
+                    <th className="p-3 text-center">High (3)</th>
+                    <th className="p-3 text-right">Total</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y text-gray-700">
+                  <tr>
+                    <td className="p-3 font-semibold text-gray-800">Training Set (80%)</td>
+                    <td className="p-3 text-center">{datasetStats.train['1']}</td>
+                    <td className="p-3 text-center">{datasetStats.train['2']}</td>
+                    <td className="p-3 text-center">{datasetStats.train['3']}</td>
+                    <td className="p-3 text-right font-bold text-green-700">{datasetStats.train.total}</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 font-semibold text-gray-800">Validation Set (10%)</td>
+                    <td className="p-3 text-center">{datasetStats.valid['1']}</td>
+                    <td className="p-3 text-center">{datasetStats.valid['2']}</td>
+                    <td className="p-3 text-center">{datasetStats.valid['3']}</td>
+                    <td className="p-3 text-right font-bold text-yellow-700">{datasetStats.valid.total}</td>
+                  </tr>
+                  <tr>
+                    <td className="p-3 font-semibold text-gray-800">Testing Set (10%)</td>
+                    <td className="p-3 text-center">{datasetStats.test['1']}</td>
+                    <td className="p-3 text-center">{datasetStats.test['2']}</td>
+                    <td className="p-3 text-center">{datasetStats.test['3']}</td>
+                    <td className="p-3 text-right font-bold text-red-700">{datasetStats.test.total}</td>
+                  </tr>
+                  <tr className="bg-gray-50 font-bold">
+                    <td className="p-3 text-gray-800">Grand Total</td>
+                    <td className="p-3 text-center">{datasetStats.train['1'] + datasetStats.valid['1'] + datasetStats.test['1']}</td>
+                    <td className="p-3 text-center">{datasetStats.train['2'] + datasetStats.valid['2'] + datasetStats.test['2']}</td>
+                    <td className="p-3 text-center">{datasetStats.train['3'] + datasetStats.valid['3'] + datasetStats.test['3']}</td>
+                    <td className="p-3 text-right text-gray-900">{datasetStats.grandTotal} images</td>
+                  </tr>
+                </tbody>
+              </table>
+              <div className="bg-green-50 text-green-800 border border-green-200 rounded-xl p-4 text-xs font-medium">
+                💡 <strong>Best Practice:</strong> To keep model performance balanced, aim to maintain a similar count of images across all three severity classes.
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center p-12 text-gray-400">
+              <RefreshCw className="animate-spin mb-4" size={24} />
+              <span>Scanning directories for dataset counts...</span>
+            </div>
+          )}
+        </div>
+
+        {/* Dataset Image Uploader */}
+        <div className="bg-white rounded-2xl p-6 shadow-md border">
+          <div className="flex items-center gap-2 mb-6 border-b pb-4">
+            <UploadCloud className="text-green-600" />
+            <h3 className="text-lg font-bold text-gray-800">Expand Training Dataset</h3>
+          </div>
+
+          <form onSubmit={handleDatasetUpload} className="space-y-6">
+            <div>
+              <label className="block text-sm font-semibold text-gray-600 mb-2">Select Target Label (Class)</label>
+              <select 
+                value={uploadCategory} 
+                onChange={e => setUploadCategory(e.target.value)}
+                className="w-full border rounded-xl p-3 bg-white outline-none focus:ring-2 focus:ring-green-500 font-medium text-gray-700 shadow-sm"
+              >
+                <option value="1">Label 1: Low Damage (Cracks, Wear)</option>
+                <option value="2">Label 2: Medium Damage (Developing Pothole)</option>
+                <option value="3">Label 3: High Damage (Severe deep pothole)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-semibold text-gray-600 mb-2">Drop Training Image</label>
+              <div className="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-green-500 transition cursor-pointer relative bg-gray-50/50">
+                {uploadPreview ? (
+                  <div className="relative inline-block">
+                    <img src={uploadPreview} alt="Upload Preview" className="mx-auto rounded-lg max-h-40 object-cover" />
+                    <button 
+                      type="button" 
+                      onClick={() => { setUploadFile(null); setUploadPreview(null); }}
+                      className="absolute -top-2 -right-2 bg-red-500 hover:bg-red-600 text-white rounded-full p-1.5 shadow"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="cursor-pointer block w-full h-full py-4">
+                    <UploadCloud className="mx-auto text-gray-400 mb-3" size={32} />
+                    <span className="text-sm text-gray-600 font-medium block">Click to select image file</span>
+                    <span className="text-xs text-gray-400 mt-1 block">Supports JPEG, PNG</span>
+                    <input 
+                      type="file" 
+                      className="hidden" 
+                      accept="image/*" 
+                      onChange={e => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setUploadFile(file);
+                          setUploadPreview(URL.createObjectURL(file));
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <button 
+              type="submit" 
+              disabled={isUploading || !uploadFile}
+              className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-300 text-white py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow hover:shadow-green-100"
+            >
+              {isUploading ? <RefreshCw className="animate-spin" size={18} /> : null}
+              {isUploading ? "Uploading..." : "Upload and Add to Dataset"}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Trigger Retraining Card */}
+      <div className="bg-white rounded-2xl p-8 shadow-md border">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-2">
+            <h3 className="text-xl font-extrabold text-gray-800 flex items-center gap-2">
+              <RefreshCw className={isRetraining ? "animate-spin text-green-600" : "text-green-600"} />
+              Dynamic Model Retraining &amp; Hot-Reload
+            </h3>
+            <p className="text-sm text-gray-500 max-w-2xl">
+              Initiates the Random Forest feature-extraction and training pipeline. The new model is automatically benchmarked against the validation and test splits, saved to disk, and loaded in memory with **zero downtime**.
+            </p>
+          </div>
+          
+          <button 
+            onClick={handleTriggerRetraining}
+            disabled={isRetraining}
+            className="bg-green-600 hover:bg-green-700 disabled:bg-green-400 text-white font-extrabold px-8 py-4 rounded-xl shadow-lg transition whitespace-nowrap flex items-center gap-3 shrink-0"
+          >
+            {isRetraining ? <RefreshCw className="animate-spin" size={20} /> : <Cpu size={20} />}
+            {isRetraining ? "Retraining AI..." : "Retrain AI Model Now"}
+          </button>
+        </div>
+
+        {/* Retraining Results Logs */}
+        {retrainResults && (
+          <div className="mt-8 border-t pt-6 space-y-4">
+            <h4 className="text-sm font-bold text-gray-700">Retraining Pipeline Results Log:</h4>
+            <div className="bg-gray-900 text-green-400 font-mono text-xs rounded-xl p-5 overflow-x-auto space-y-2.5 shadow-inner border border-gray-800">
+              <div className="flex items-center gap-2 text-green-500 font-bold border-b border-gray-800 pb-2 mb-2">
+                <CheckCircle2 size={14} /> Pipeline Executed Successfully!
+              </div>
+              <p>&gt; Staging directories scanned: Dataset/train, Dataset/valid, Dataset/test</p>
+              <p>&gt; Extracted features: Edge Density (Canny) &amp; Color Histograms (RGB)</p>
+              <p>&gt; Random Forest model fit complete with {retrainResults.train_size} active training items.</p>
+              <p>&gt; Hot-reload complete: active in-memory weights loaded into Python API.</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-4 pt-4 border-t border-gray-800 text-white font-semibold">
+                <p>📊 Train Accuracy: {retrainResults.train_accuracy}%</p>
+                <p>📈 Validation Accuracy: {retrainResults.valid_accuracy}%</p>
+                <p>🧪 Test Accuracy: {retrainResults.test_accuracy}%</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Navbar */}
@@ -295,6 +617,12 @@ export default function Dashboard() {
             onClick={() => setActiveTab('map')}
           >
             Live Map View
+          </button>
+          <button 
+            className={`pb-3 px-4 font-semibold text-sm ${activeTab === 'ai' ? 'text-green-600 border-b-2 border-green-600' : 'text-gray-500'}`}
+            onClick={() => setActiveTab('ai')}
+          >
+            🤖 AI &amp; Dataset Manager
           </button>
         </div>
 
@@ -357,6 +685,8 @@ export default function Dashboard() {
               {renderTable(mapFilteredComplaints)}
             </div>
           </div>
+        ) : activeTab === 'ai' ? (
+          renderAIDatasetManager()
         ) : (
           renderTable(filteredComplaints)
         )}

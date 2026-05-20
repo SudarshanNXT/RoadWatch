@@ -1,11 +1,24 @@
 import cv2
 import numpy as np
 import joblib
+import threading
 
+# Guard model loading and predicting with a thread lock to ensure thread safety
+model_lock = threading.Lock()
 model = joblib.load("road_damage_model.pkl")
+
+def reload_model():
+    """Reloads the road damage model dynamically from the disk."""
+    global model
+    with model_lock:
+        print("Hot-reloading model from disk...")
+        model = joblib.load("road_damage_model.pkl")
+        print("Model reloaded successfully.")
 
 def extract_features(image_path):
     img = cv2.imread(image_path)
+    if img is None:
+        raise ValueError("Image could not be read.")
     img = cv2.resize(img, (64, 64))
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
@@ -23,7 +36,10 @@ def extract_features(image_path):
 
 def predict_image(image_path):
     features = extract_features(image_path)
-    prediction = model.predict([features])[0]
+    
+    with model_lock:
+        prediction = model.predict([features])[0]
+        proba = model.predict_proba([features])[0]
 
     label_map = {
         0: "Low Damage",
@@ -43,7 +59,6 @@ def predict_image(image_path):
         2: 100
     }
 
-    proba = model.predict_proba([features])[0]
     confidence = float(max(proba))
 
     return {

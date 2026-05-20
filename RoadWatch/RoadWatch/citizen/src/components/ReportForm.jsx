@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
 import axios from "axios";
 import { toast } from 'react-hot-toast';
-import { Camera, Upload, User, Mail, Send, Search, MapPin } from "lucide-react";
+import { Camera, Upload, User, Mail, Send, Search, MapPin, CheckCircle, Copy, X } from "lucide-react";
 import { MapContainer, TileLayer, Marker, useMapEvents, useMap } from "react-leaflet";
 import L from "leaflet";
 
@@ -38,6 +38,9 @@ function ReportForm() {
   const [description, setDescription] = useState("");
   const [locationDesc, setLocationDesc] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [submittedId, setSubmittedId] = useState("");
 
   const fetchAddress = async (lat, lng) => {
     try {
@@ -157,9 +160,25 @@ function ReportForm() {
         headers: { "Content-Type": "multipart/form-data" }
       });
       console.log("Report Submitted:", response.data);
+      
+      if (response.data?.complaint?.complaintId) {
+        setSubmittedId(response.data.complaint.complaintId);
+        setIsSuccessModalOpen(true);
+      }
+      
       toast.success("Report Submitted Successfully ✅");
       
-      // Optionally reset form here
+      // Reset form states
+      setPreview(null);
+      setSelectedFile(null);
+      setAnalysis(null);
+      setName("");
+      setEmail("");
+      setDescription("");
+      setLocationDesc("");
+      setLocation(null);
+      setSearchQuery("");
+      
     } catch (error) {
       console.error("Error submitting report:", error);
       if (error.response?.status === 409) {
@@ -382,6 +401,57 @@ function ReportForm() {
         </button>
 
       </div>
+
+      {/* ================= SUCCESS MODAL ================= */}
+      {isSuccessModalOpen && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999] p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl relative text-center flex flex-col items-center justify-center transform transition-all scale-100">
+            
+            <button 
+              onClick={() => setIsSuccessModalOpen(false)}
+              className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 p-2 rounded-full hover:bg-gray-100 transition"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6">
+              <CheckCircle size={45} className="text-green-600 animate-bounce" />
+            </div>
+
+            <h3 className="text-2xl font-bold text-gray-800 mb-2">Report Submitted!</h3>
+            <p className="text-sm text-gray-500 mb-6">Your road issue has been recorded. Our municipal team and AI systems are on it!</p>
+
+            {/* Premium Tracking ID Ticket */}
+            <div className="w-full bg-green-50/50 border-2 border-dashed border-green-200 rounded-2xl p-6 mb-6">
+              <span className="text-xs uppercase font-bold text-green-700 tracking-wider">Tracking Reference ID</span>
+              <div className="flex items-center justify-center gap-3 mt-2">
+                <span className="text-3xl font-black text-green-800 font-mono tracking-widest">{submittedId}</span>
+                <button 
+                  onClick={() => {
+                    navigator.clipboard.writeText(submittedId);
+                    toast.success("Tracking ID copied to clipboard!");
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white p-2 rounded-lg transition"
+                  title="Copy Tracking ID"
+                >
+                  <Copy size={16} />
+                </button>
+              </div>
+            </div>
+
+            <div className="w-full text-xs text-gray-400 border-t pt-4">
+              Use this Tracking ID in the <span className="font-semibold text-green-600">Track Report</span> tab to check real-time resolution updates.
+            </div>
+
+            <button 
+              onClick={() => setIsSuccessModalOpen(false)}
+              className="w-full bg-green-600 hover:bg-green-700 text-white py-3.5 rounded-xl font-bold text-lg shadow-lg mt-6 hover:shadow-green-200/50 transition"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
