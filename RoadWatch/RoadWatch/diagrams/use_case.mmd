@@ -1,0 +1,30 @@
+flowchart LR
+    classDef actor fill:#f9d0c4,stroke:#333,stroke-width:2px;
+    classDef citizenApp fill:#d4edda,stroke:#28a745,stroke-width:2px;
+    classDef adminApp fill:#cce5ff,stroke:#007bff,stroke-width:2px;
+    Citizen([Citizen]):::actor
+    Admin([Admin]):::actor
+    subgraph Citizen Portal
+        style Citizen Portal fill:#e8f5e9,stroke:#4caf50
+        UC1(Submit Road Report):::citizenApp
+        UC2(View Public Map):::citizenApp
+        UC3(Track Report Status):::citizenApp
+        UC4(Analyze Image via AI):::citizenApp
+    end
+    subgraph Admin Dashboard
+        style Admin Dashboard fill:#e3f2fd,stroke:#2196f3
+        UC5(View/Filter Reports):::adminApp
+        UC6(Update Report Status):::adminApp
+        UC7(Broadcast Global Alerts):::adminApp
+        UC8(Trigger AI Re-check):::adminApp
+        UC9(Admin Login):::adminApp
+    end
+    Citizen --> UC1
+    Citizen --> UC2
+    Citizen --> UC3
+    Citizen --> UC4
+    Admin --> UC5
+    Admin --> UC6
+    Admin --> UC7
+    Admin --> UC8
+    Admin --> UC9

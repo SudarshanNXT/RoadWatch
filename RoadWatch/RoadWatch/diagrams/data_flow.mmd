@@ -1,0 +1,32 @@
+flowchart TD
+    classDef actor fill:#ffcc80,stroke:#e65100,stroke-width:2px;
+    classDef frontend fill:#bbdefb,stroke:#1565c0,stroke-width:2px;
+    classDef backend fill:#c8e6c9,stroke:#2e7d32,stroke-width:2px;
+    classDef external fill:#e1bee7,stroke:#6a1b9a,stroke-width:2px;
+    classDef db fill:#fff9c4,stroke:#f57f17,stroke-width:2px;
+    Cit[Citizen]:::actor
+    Adm[Admin]:::actor
+    subgraph Frontend
+        style Frontend fill:#e3f2fd,stroke:#64b5f6,stroke-dasharray: 5 5
+        CitApp[Citizen React App]:::frontend
+        AdmApp[Admin React App]:::frontend
+    end
+    subgraph Backend
+        style Backend fill:#e8f5e9,stroke:#81c784,stroke-dasharray: 5 5
+        API[Node.js Express Backend]:::backend
+        Email[Email Notification Utility]:::backend
+    end
+    subgraph External/Microservices
+        style External/Microservices fill:#f3e5f5,stroke:#ba68c8,stroke-dasharray: 5 5
+        DB[(MongoDB Database)]:::db
+        AI[Python AI Analysis Service]:::external
+    end
+    Cit -->|Submits Report/Image, Views Map| CitApp
+    Adm -->|Updates Status, Broadcasts| AdmApp
+    CitApp <-->|REST API Calls| API
+    AdmApp <-->|REST API Calls| API
+    CitApp -->|Initial Image Analysis| AI
+    API <-->|Read/Write Data| DB
+    API -->|Recheck Image| AI
+    API -->|Trigger Updates| Email
+    Email -->|Notifications| Cit

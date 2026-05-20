@@ -1,0 +1,41 @@
+%%{init: {'theme': 'forest'}}%%
+sequenceDiagram
+    autonumber
+    actor Citizen
+    participant App as Citizen Portal
+    participant AI as Python AI Service
+    participant API as Node.js Backend
+    participant DB as MongoDB
+    participant Email as Email Service
+    actor Admin
+    Citizen->>App: Fills report (Image, Location)
+    App->>AI: Sends image for analysis
+    AI-->>App: Returns damage score & severity
+    App->>API: POST /api/complaints (Report Data + AI Result)
+    rect rgb(232, 245, 233)
+    activate API
+    API->>API: Check duplicate within 50m
+    API->>DB: Save new Complaint
+    API->>Email: Send Report Received Email
+    Email-->>Citizen: Email delivered
+    API-->>App: 201 Created (Success)
+    deactivate API
+    end
+    App-->>Citizen: Show Tracking ID
+    rect rgb(227, 242, 253)
+    Admin->>API: GET /api/complaints
+    activate API
+    API->>DB: Fetch complaints
+    DB-->>API: Complaint list
+    API-->>Admin: Display in Dashboard
+    deactivate API
+    end
+    rect rgb(255, 243, 224)
+    Admin->>API: PATCH /api/complaints/{id}/status
+    activate API
+    API->>DB: Update status & comments
+    API->>Email: Send status update email
+    Email-->>Citizen: Email delivered
+    API-->>Admin: 200 OK
+    deactivate API
+    end

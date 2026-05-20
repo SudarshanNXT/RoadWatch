@@ -1,0 +1,48 @@
+flowchart TB
+    classDef client fill:#e3f2fd,stroke:#1565c0,stroke-width:2px;
+    classDef server fill:#e8f5e9,stroke:#2e7d32,stroke-width:2px;
+    classDef database fill:#fff9c4,stroke:#f57f17,stroke-width:2px;
+    classDef ai fill:#f3e5f5,stroke:#6a1b9a,stroke-width:2px;
+    classDef external fill:#ffe0b2,stroke:#e65100,stroke-width:2px;
+
+    %% Presentation Layer
+    subgraph Presentation_Layer [Presentation / Client Layer]
+        direction LR
+        CitApp[Citizen Web App<br>React/Vite]:::client
+        AdmApp[Admin Dashboard<br>React/Vite]:::client
+    end
+
+    %% Application Layer
+    subgraph Application_Layer [Application / API Layer]
+        NodeAPI[Node.js / Express API<br>REST Services]:::server
+    end
+
+    %% AI Microservice Layer
+    subgraph AI_Layer [AI / ML Microservice]
+        PythonAI[Python Service<br>Pothole Detection Model]:::ai
+    end
+
+    %% Data Layer
+    subgraph Data_Layer [Data / Storage Layer]
+        direction LR
+        MongoDB[(MongoDB<br>NoSQL Database)]:::database
+        LocalFS[(Local File System<br>Image Uploads)]:::database
+    end
+
+    %% External Systems
+    subgraph External_Systems [External APIs and Services]
+        direction LR
+        OSM[OpenStreetMap API<br>Geocoding and Tiles]:::external
+        Email[Email Service<br>SMTP Notifier]:::external
+    end
+
+    %% Connections
+    CitApp <-->|HTTP/REST| NodeAPI
+    AdmApp <-->|HTTP/REST| NodeAPI
+    CitApp -.->|Fetch Map Tiles| OSM
+    AdmApp -.->|Search Location| OSM
+    
+    NodeAPI -->|Read/Write Documents| MongoDB
+    NodeAPI -->|Save Images| LocalFS
+    NodeAPI <-->|Image Analysis via HTTP POST| PythonAI
+    NodeAPI -->|Send Notifications| Email

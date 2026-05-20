@@ -1,0 +1,27 @@
+flowchart TD
+    classDef process fill:#90caf9,stroke:#1565c0,stroke-width:2px;
+    classDef external fill:#ffcc80,stroke:#e65100,stroke-width:2px;
+    classDef datastore fill:#fff9c4,stroke:#f57f17,stroke-width:2px;
+    Cit[Citizen]:::external
+    Adm[Admin]:::external
+    P1((1.0 Submit and Analyze Report)):::process
+    P2((2.0 Manage Reports)):::process
+    P3((3.0 Map Generation and Display)):::process
+    P4((4.0 Notification Broadcast)):::process
+    D1[(D1: Complaints DB)]:::datastore
+    D2[(D2: Alerts DB)]:::datastore
+    Cit -->|Report Details and Image| P1
+    P1 -->|Tracking ID| Cit
+    Cit -->|View Request| P3
+    P3 -->|Map Markers and Details| Cit
+    Adm -->|Review and Action Status| P2
+    Adm -->|Alert Text and Type| P4
+    P2 -->|Complaint List| Adm
+    P1 -->|Validated Report Data| D1
+    D1 -->|Stored Complaint Data| P2
+    P2 -->|Status Updates| D1
+    D1 -->|Active Complaints Data| P3
+    P4 -->|New Alert Data| D2
+    D2 -->|Active Alerts Data| P3
+    P2 -->|Status Notification Trigger| P4
+    P4 -->|Email Notification| Cit

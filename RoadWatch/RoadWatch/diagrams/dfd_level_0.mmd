@@ -1,0 +1,11 @@
+flowchart TD
+    classDef process fill:#90caf9,stroke:#1565c0,stroke-width:2px;
+    classDef external fill:#ffcc80,stroke:#e65100,stroke-width:2px;
+    Cit[Citizen]:::external
+    Adm[Admin]:::external
+    Sys((0. RoadWatch System)):::process
+    Cit -->|Submits Report, Location, Image| Sys
+    Sys -->|Provides Tracking ID, Map Data| Cit
+    Adm -->|Status Updates, Alert Broadcasts| Sys
+    Sys -->|Aggregated Reports, AI Analysis| Adm
+    Sys -.->|Email Notifications| Cit

@@ -1,0 +1,22 @@
+%%{init: {'theme': 'default', 'themeVariables': {'primaryColor': '#ffeb3b', 'lineColor': '#f44336'}}}%%
+stateDiagram-v2
+    classDef process fill:#90caf9,stroke:#1565c0,stroke-width:2px
+    classDef decision fill:#ffb74d,stroke:#e65100,stroke-width:2px
+    [*] --> ViewDashboard
+    ViewDashboard --> ReviewReport : Selects Report
+    ReviewReport --> AddComments
+    AddComments --> DecideAction
+    state DecideAction {
+        [*] --> InProgress
+        [*] --> Resolved
+        [*] --> Cancelled
+        [*] --> AIRecheck
+    }
+    InProgress --> NotifyUser
+    Resolved --> NotifyUser
+    Cancelled --> NotifyUser
+    AIRecheck --> UpdateSeverity
+    UpdateSeverity --> ReviewReport : Re-evaluate
+    NotifyUser --> [*]
+    class ViewDashboard, ReviewReport, AddComments, NotifyUser, UpdateSeverity process
+    class DecideAction, InProgress, Resolved, Cancelled, AIRecheck decision
